@@ -1,3 +1,5 @@
 run.dev:
-	go run ./cmd/api/ -p 8080 -e dev
+	go run ./cmd/api/ 
 
+run.help:
+	go run ./cmd/api/ --help

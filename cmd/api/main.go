@@ -17,6 +17,9 @@ const version = "1.0.0"
 type config struct {
 	port int
 	env  string
+	db   struct {
+		dsn string
+	}
 }
 
 type application struct {
@@ -33,6 +36,7 @@ func newRootCommand(config *config) *cobra.Command {
 	}
 	rootCmd.PersistentFlags().StringVarP(&config.env, "env", "e", "dev", "Env file path")
 	rootCmd.PersistentFlags().IntVarP(&config.port, "port", "p", 8080, "Server port")
+	rootCmd.PersistentFlags().StringVarP(&config.db.dsn, "dsn", "d", "postgres://postgres:123123@localhost:5432/greenlight?ssl_disable=true", "database dsn connection string")
 	return &rootCmd
 }
 
