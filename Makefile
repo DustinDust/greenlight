@@ -1,5 +1,6 @@
 run.dev:
-	go run ./cmd/api/ 
+	ho run ./cmd/api/ 
 
-run.help:
-	go run ./cmd/api/ --help
+build.bin:
+	rm -rf bin
+	mkdir bin && go build -o bin ./cmd/api/
