@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"greenlight/internal/data"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/spf13/cobra"
+	_ "github.com/lib/pq"
 )
 
 const name = "greenlight"
@@ -18,37 +19,36 @@ type config struct {
 	port int
 	env  string
 	db   struct {
-		dsn string
+		dsn          string
+		maxOpenConns int
+		maxIdleConns int
+		maxIdleTime  string
 	}
 }
 
 type application struct {
 	config config
 	logger *log.Logger
-}
-
-func newRootCommand(config *config) *cobra.Command {
-	rootCmd := cobra.Command{
-		Use:   name,
-		Short: name,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
-	}
-	rootCmd.PersistentFlags().StringVarP(&config.env, "env", "e", "dev", "Env file path")
-	rootCmd.PersistentFlags().IntVarP(&config.port, "port", "p", 8080, "Server port")
-	rootCmd.PersistentFlags().StringVarP(&config.db.dsn, "dsn", "d", "postgres://postgres:123123@localhost:5432/greenlight?ssl_disable=true", "database dsn connection string")
-	return &rootCmd
+	models data.Models
 }
 
 func main() {
 	var cfg config
+	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+
 	rootCmd := newRootCommand(&cfg)
 	rootCmd.Execute()
+	db, err := openDB(cfg)
+	if err != nil {
+		logger.Fatalf("error opening connection to database: %v", err)
+	}
+	logger.Println("database connection pool established")
+	defer db.Close()
 
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	app := &application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(db),
 	}
 
 	router := app.routes()
@@ -59,8 +59,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
-
 	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	logger.Fatal(err)
 }

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"database/sql"
 	"greenlight/internal/validator"
 	"time"
 )
@@ -26,4 +27,31 @@ func ValidateMovieInput(v *validator.Validator, movie Movie) {
 	v.Check(movie.Genres != nil, "genres", "must be provided")
 	v.Check(len(movie.Genres) >= 1, "genres", "must contain at least 1 genre")
 	v.Check(len(movie.Genres) <= 5, "genres", "must not contain more than 5 genres")
+}
+
+type MoviesModel struct {
+	DB *sql.DB
+}
+
+func (m MoviesModel) Insert(movie *Movie) error {
+	return nil
+}
+
+func (m MoviesModel) Get(id int64) (*Movie, error) {
+	return nil, nil
+}
+
+func (m MoviesModel) Update(movie *Movie) error {
+	return nil
+}
+
+func (m MoviesModel) Delete(id int64) error {
+	return nil
+}
+
+type MoviesRepository interface {
+	Insert(movie *Movie) error
+	Get(id int64) (*Movie, error)
+	Update(movie *Movie) error
+	Delete(id int64) error
 }
