@@ -2,8 +2,11 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"greenlight/internal/validator"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type Movie struct {
@@ -34,11 +37,36 @@ type MoviesModel struct {
 }
 
 func (m MoviesModel) Insert(movie *Movie) error {
-	return nil
+	statement := "INSERT INTO MOVIES (title, year, runtime, genres) VALUES ($1, $2, $3, $4) RETURNING id, version, created_at"
+	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
+	row := m.DB.QueryRow(statement, args...)
+	return row.Scan(&movie.ID, &movie.Version, &movie.CreatedAt)
 }
 
 func (m MoviesModel) Get(id int64) (*Movie, error) {
-	return nil, nil
+	if id < 1 {
+		return nil, ErrorRecordNotFound
+	}
+	statement := "SELECT id, created_at, title, year, runtime, genres,  version FROM MOVIES where id=$1"
+	row := m.DB.QueryRow(statement, id)
+	movie := Movie{}
+	if err := row.Scan(
+		&movie.ID,
+		&movie.CreatedAt,
+		&movie.Title,
+		&movie.Year,
+		&movie.Runtime,
+		pq.Array(&movie.Genres),
+		&movie.Version,
+	); err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrorRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &movie, nil
 }
 
 func (m MoviesModel) Update(movie *Movie) error {
