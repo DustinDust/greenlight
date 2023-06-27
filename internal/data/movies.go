@@ -70,10 +70,37 @@ func (m MoviesModel) Get(id int64) (*Movie, error) {
 }
 
 func (m MoviesModel) Update(movie *Movie) error {
-	return nil
+	statement := "UPDATE MOVIES SET title=$1, year=$2, runtime=$3, genres=$4, version=version + 1 WHERE id=$5 RETURNING version"
+	args := []interface{}{
+		movie.Title,
+		movie.Year,
+		movie.Runtime,
+		pq.Array(movie.Genres),
+		movie.ID,
+	}
+
+	// Get new version into arguments YO
+	return m.DB.QueryRow(statement, args...).Scan(&movie.Version)
 }
 
 func (m MoviesModel) Delete(id int64) error {
+	if id < 1 {
+		return ErrorRecordNotFound
+	}
+	statement := "DELETE FROM MOVIES WHERE id=$1"
+	result, err := m.DB.Exec(statement, id)
+	if err != nil {
+		return err
+	}
+	rowsEffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsEffected == 0 {
+		return ErrorRecordNotFound
+	}
+
 	return nil
 }
 
