@@ -16,7 +16,7 @@ type Movie struct {
 	Year      int32     `json:"year,omitempty"`
 	Runtime   Runtime   `json:"runtime,omitempty"`
 	Genres    []string  `json:"genres,omitempty"`
-	Version   int32     `json:"version"`
+	Version   int32     `json:"version"` // Used for optimistic locking - preventing race condition when updating
 }
 
 func ValidateMovieInput(v *validator.Validator, movie Movie) {
@@ -70,17 +70,32 @@ func (m MoviesModel) Get(id int64) (*Movie, error) {
 }
 
 func (m MoviesModel) Update(movie *Movie) error {
-	statement := "UPDATE MOVIES SET title=$1, year=$2, runtime=$3, genres=$4, version=version + 1 WHERE id=$5 RETURNING version"
+	/*
+		'version' query condition is used for optimistic locking,
+		preventing updates to happens concurrently between 2 client API calls,
+		instead return an error
+	*/
+	statement := "UPDATE MOVIES SET title=$1, year=$2, runtime=$3, genres=$4, version=version + 1 WHERE id=$5 AND version=$6 RETURNING version"
 	args := []interface{}{
 		movie.Title,
 		movie.Year,
 		movie.Runtime,
 		pq.Array(movie.Genres),
 		movie.ID,
+		movie.Version,
 	}
 
 	// Get new version into arguments YO
-	return m.DB.QueryRow(statement, args...).Scan(&movie.Version)
+	err := m.DB.QueryRow(statement, args...).Scan(&movie.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrorEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func (m MoviesModel) Delete(id int64) error {
