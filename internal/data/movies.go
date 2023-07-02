@@ -1,8 +1,10 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"greenlight/internal/validator"
 	"time"
 
@@ -36,10 +38,61 @@ type MoviesModel struct {
 	DB *sql.DB
 }
 
+func (m MoviesModel) FindAll(title string, genres []string, filters Filter) ([]*Movie, error) {
+	// https://www.postgresql.org/docs/9.1/textsearch-intro.html
+	statement := fmt.Sprintf(`
+		SELECT id, created_at, title, year, runtime, genres, version 
+		FROM movies 
+		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1= '')  
+		AND (genres @> $2 OR $2='{}')
+		ORDER BY %s %s, id ASC
+		LIMIT $3 
+		OFFSET $4
+	`, filters.sortColumn(), filters.sortDirection())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	args := []interface{}{
+		title,
+		pq.Array(genres),
+		filters.limit(),
+		filters.offset(),
+	}
+	rows, err := m.DB.QueryContext(ctx, statement, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	movies := []*Movie{}
+	for rows.Next() {
+		var movie Movie
+		err := rows.Scan(
+			&movie.ID,
+			&movie.CreatedAt,
+			&movie.Title,
+			&movie.Year,
+			&movie.Runtime,
+			pq.Array(&movie.Genres),
+			&movie.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+		movies = append(movies, &movie)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return movies, nil
+}
+
 func (m MoviesModel) Insert(movie *Movie) error {
 	statement := "INSERT INTO MOVIES (title, year, runtime, genres) VALUES ($1, $2, $3, $4) RETURNING id, version, created_at"
 	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
-	row := m.DB.QueryRow(statement, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	row := m.DB.QueryRowContext(ctx, statement, args...)
 	return row.Scan(&movie.ID, &movie.Version, &movie.CreatedAt)
 }
 
@@ -48,7 +101,11 @@ func (m MoviesModel) Get(id int64) (*Movie, error) {
 		return nil, ErrorRecordNotFound
 	}
 	statement := "SELECT id, created_at, title, year, runtime, genres,  version FROM MOVIES where id=$1"
-	row := m.DB.QueryRow(statement, id)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	row := m.DB.QueryRowContext(ctx, statement, id)
 	movie := Movie{}
 	if err := row.Scan(
 		&movie.ID,
@@ -76,6 +133,8 @@ func (m MoviesModel) Update(movie *Movie) error {
 		instead return an error
 	*/
 	statement := "UPDATE MOVIES SET title=$1, year=$2, runtime=$3, genres=$4, version=version + 1 WHERE id=$5 AND version=$6 RETURNING version"
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 	args := []interface{}{
 		movie.Title,
 		movie.Year,
@@ -86,7 +145,7 @@ func (m MoviesModel) Update(movie *Movie) error {
 	}
 
 	// Get new version into arguments YO
-	err := m.DB.QueryRow(statement, args...).Scan(&movie.Version)
+	err := m.DB.QueryRowContext(ctx, statement, args...).Scan(&movie.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -103,7 +162,9 @@ func (m MoviesModel) Delete(id int64) error {
 		return ErrorRecordNotFound
 	}
 	statement := "DELETE FROM MOVIES WHERE id=$1"
-	result, err := m.DB.Exec(statement, id)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	result, err := m.DB.ExecContext(ctx, statement, id)
 	if err != nil {
 		return err
 	}
@@ -120,6 +181,7 @@ func (m MoviesModel) Delete(id int64) error {
 }
 
 type MoviesRepository interface {
+	FindAll(title string, genres []string, filters Filter) ([]*Movie, error)
 	Insert(movie *Movie) error
 	Get(id int64) (*Movie, error)
 	Update(movie *Movie) error

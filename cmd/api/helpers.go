@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"greenlight/internal/constant"
+	"greenlight/internal/validator"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -22,6 +24,37 @@ func (app *application) parseIDParam(r *http.Request) (int64, error) {
 		return 0, nil
 	}
 	return id, nil
+}
+
+func (app *application) readString(qs url.Values, key string, defaultValue string) string {
+	// get string from url query values
+	s := qs.Get(key)
+	if s == "" {
+		return defaultValue
+	}
+	return s
+}
+
+// read a string into array of strings, seperated by ","
+func (app *application) readCSV(qs url.Values, key string, seperator string, defaultValues []string) []string {
+	csv := qs.Get(key)
+	if csv == "" {
+		return defaultValues
+	}
+	return strings.Split(csv, seperator)
+}
+
+func (app *application) readInt(qs url.Values, key string, defaultValue int, v *validator.Validator) int {
+	s := qs.Get(key)
+	if s == "" {
+		return defaultValue
+	}
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		v.AddError(key, "must be an integer value")
+		return defaultValue
+	}
+	return i
 }
 
 func (app *application) writeJSONResponse(w http.ResponseWriter, status int, data envelope, headers http.Header) error {
@@ -81,7 +114,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 		default:
 			return err
 		}
-		
+
 	}
 	return nil
 }

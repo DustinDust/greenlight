@@ -193,6 +193,37 @@ func (app *application) partialUpdateMovieHandler(w http.ResponseWriter, r *http
 	}
 }
 
+func (app *application) findMovieHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Title  string
+		Genres []string
+		data.Filter
+	}
+	v := validator.New()
+	qs := r.URL.Query()
+	input.Title = app.readString(qs, "title", "")
+	input.Genres = app.readCSV(qs, "genres", ",", []string{})
+	input.Filter.Page = app.readInt(qs, "page", 1, v)
+	input.Filter.PageSize = app.readInt(qs, "page_size", 20, v)
+	input.Filter.Sort = app.readString(qs, "sort", "id")
+	input.Filter.SortSafeList = []string{"id", "title", "year", "runtime", "-id", "-title", "-year", "-runtime"}
+
+	if data.ValidateFilters(v, input.Filter); !v.Valid() {
+		app.failedValidationError(w, r, v.Errors)
+		return
+	}
+
+	movies, err := app.models.Movies.FindAll(input.Title, input.Genres, input.Filter)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	err = app.writeJSONResponse(w, http.StatusOK, envelope{"movies": movies}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
 func (app *application) deleteMovieHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.parseIDParam(r)
 	if err != nil {
