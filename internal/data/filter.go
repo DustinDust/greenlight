@@ -2,6 +2,7 @@ package data
 
 import (
 	"greenlight/internal/validator"
+	"math"
 	"strings"
 )
 
@@ -10,6 +11,27 @@ type Filter struct {
 	PageSize     int
 	Sort         string
 	SortSafeList []string
+}
+
+type Metadata struct {
+	CurrentPage  int `json:"current_page,omitempty"`
+	PageSize     int `json:"page_size,omitempty"`
+	FirstPage    int `json:"first_page,omitempty"`
+	LastPage     int `json:"last_page,omitempty"`
+	TotalRecords int `json:"total_records"`
+}
+
+func calculateMetadata(total, pageSize, page int) Metadata {
+	if total == 0 {
+		return Metadata{}
+	}
+	return Metadata{
+		CurrentPage:  page,
+		PageSize:     pageSize,
+		FirstPage:    1,
+		LastPage:     int(math.Ceil(float64(total) / float64(pageSize))),
+		TotalRecords: total,
+	}
 }
 
 func ValidateFilters(v *validator.Validator, f Filter) {

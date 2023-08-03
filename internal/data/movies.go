@@ -38,10 +38,10 @@ type MoviesModel struct {
 	DB *sql.DB
 }
 
-func (m MoviesModel) FindAll(title string, genres []string, filters Filter) ([]*Movie, error) {
+func (m MoviesModel) FindAll(title string, genres []string, filters Filter) ([]*Movie, Metadata, error) {
 	// https://www.postgresql.org/docs/9.1/textsearch-intro.html
 	statement := fmt.Sprintf(`
-		SELECT id, created_at, title, year, runtime, genres, version 
+		SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version 
 		FROM movies 
 		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1= '')  
 		AND (genres @> $2 OR $2='{}')
@@ -60,13 +60,15 @@ func (m MoviesModel) FindAll(title string, genres []string, filters Filter) ([]*
 	}
 	rows, err := m.DB.QueryContext(ctx, statement, args...)
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 	defer rows.Close()
 	movies := []*Movie{}
+	totalRecords := 0
 	for rows.Next() {
 		var movie Movie
 		err := rows.Scan(
+			&totalRecords,
 			&movie.ID,
 			&movie.CreatedAt,
 			&movie.Title,
@@ -76,15 +78,15 @@ func (m MoviesModel) FindAll(title string, genres []string, filters Filter) ([]*
 			&movie.Version,
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err
 		}
 		movies = append(movies, &movie)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 
-	return movies, nil
+	return movies, calculateMetadata(totalRecords, filters.PageSize, filters.Page), err
 }
 
 func (m MoviesModel) Insert(movie *Movie) error {
@@ -180,8 +182,9 @@ func (m MoviesModel) Delete(id int64) error {
 	return nil
 }
 
+// this is used to create mock repository for better testing
 type MoviesRepository interface {
-	FindAll(title string, genres []string, filters Filter) ([]*Movie, error)
+	FindAll(title string, genres []string, filters Filter) ([]*Movie, Metadata, error)
 	Insert(movie *Movie) error
 	Get(id int64) (*Movie, error)
 	Update(movie *Movie) error

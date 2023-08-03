@@ -213,12 +213,12 @@ func (app *application) findMovieHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	movies, err := app.models.Movies.FindAll(input.Title, input.Genres, input.Filter)
+	movies, metadata, err := app.models.Movies.FindAll(input.Title, input.Genres, input.Filter)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	err = app.writeJSONResponse(w, http.StatusOK, envelope{"movies": movies}, nil)
+	err = app.writeJSONResponse(w, http.StatusOK, envelope{"metadata": metadata, "movies": movies}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
