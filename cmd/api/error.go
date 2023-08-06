@@ -8,7 +8,7 @@ import (
 
 // generic helper to logging an error
 func (app *application) logError(r *http.Request, err error) {
-	app.logger.Println(err)
+	app.logger.PrintError(err.Error(), nil)
 }
 
 // generic helper to sending json formatted error to client with given status code
@@ -47,4 +47,9 @@ func (app *application) failedValidationError(w http.ResponseWriter, r *http.Req
 func (app *application) conflictError(w http.ResponseWriter, r *http.Request) {
 	message := "unable to perform action due to conflict, please try again"
 	app.errorResponse(w, r, http.StatusConflict, message)
+}
+
+func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http.Request) {
+	message := "rate limit exceeded, please try again later"
+	app.errorResponse(w, r, http.StatusTooManyRequests, message)
 }

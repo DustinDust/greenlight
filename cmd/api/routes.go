@@ -6,7 +6,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func (app *application) routes() *httprouter.Router {
+func (app *application) routes() http.Handler {
 	router := httprouter.New()
 
 	// handle error cases
@@ -24,5 +24,7 @@ func (app *application) routes() *httprouter.Router {
 
 	router.HandlerFunc(http.MethodDelete, "/v1/movies/:id", app.deleteMovieHandler)
 	router.HandlerFunc(http.MethodGet, "/v1/movies", app.findMovieHandler)
-	return router
+
+	// wrap the router with panic recovery middleware
+	return app.recoverPanic(app.rateLimit(router))
 }

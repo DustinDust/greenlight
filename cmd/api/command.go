@@ -19,6 +19,9 @@ func newRootCommand(config *config) *cobra.Command {
 	rootCmd.PersistentFlags().IntVar(&config.db.maxIdleConns, "db-max-idle-conns", 25, "Maximum number of idle connections")
 	rootCmd.PersistentFlags().IntVar(&config.db.maxOpenConns, "db-max-open-conns", 25, "Maximum number of open connections")
 	rootCmd.PersistentFlags().StringVar(&config.db.maxIdleTime, "db-max-idle-time", "15m", "Maximum duration of an idle connection")
+	rootCmd.PersistentFlags().Float64Var(&config.limiter.rps, "limiter-rps", 2, "Rate limiter maximum request per second")
+	rootCmd.PersistentFlags().IntVar(&config.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burse")
+	rootCmd.PersistentFlags().BoolVar(&config.limiter.enabled, "limiter-enabled", true, "Enable rate limiter per IP")
 
 	// Exit the program after help template is printed out
 	defaultHelpFunc := rootCmd.HelpFunc()
