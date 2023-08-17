@@ -1,13 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"greenlight/internal/data"
 	"greenlight/internal/jsonlog"
-	"log"
-	"net/http"
 	"os"
-	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -57,16 +53,6 @@ func main() {
 		models: data.NewModels(db),
 	}
 
-	router := app.routes()
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", app.config.port),
-		Handler:      router,
-		ErrorLog:     log.New(logger, "", 0),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-	}
-	logger.PrintInfo(fmt.Sprintf("starting %s server on %s", cfg.env, srv.Addr), map[string]string{"env": cfg.env, "addr": srv.Addr})
-	err = srv.ListenAndServe()
+	err = app.serve()
 	logger.PrintFatal(err.Error(), nil)
 }
