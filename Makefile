@@ -4,7 +4,8 @@ PORT ?= 8080
 LIMITER_ENABLE ?= true
 LIMITER_BURST ?=4
 LIMITER_RPS ?= 2
-DB ?= "postgres://postgres:123123@localhost/greenlight?sslmode=disable" 
+DB?="postgres://postgres:123123@localhost/greenlight?sslmode=disable" 
+GREENLIGHT_DB_CONNECTION?="postgres://postgres:123123@localhost/greenlight?sslmode=disable"
 
 run.dev:
 	go run ./cmd/api/ -d ${DB} -e ${ENV} -p ${PORT} --limiter-enabled=${LIMITER_ENABLE} --limiter-burst=${LIMITER_BURST} --limiter-rps=${LIMITER_RPS}
@@ -29,7 +30,7 @@ db.migrate.up:
 	migrate -path ./migrations -database "${GREENLIGHT_DB_CONNECTION}" up
 
 db.migrate.down:
-	migrate -path ./migrations -database "${GREENLIGHT_DB_CONNECTION}" down
+	migrate -path ./migrations -database ${GREENLIGHT_DB_CONNECTION} down
 
 db.migrate.to:
 	migrate -path ./migrations -database "${GREENLIGHT_DB_CONNECTION}" goto ${VERSION}
