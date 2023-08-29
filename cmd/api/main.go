@@ -54,5 +54,7 @@ func main() {
 	}
 
 	err = app.serve()
-	logger.PrintFatal(err.Error(), nil)
+	if err != nil {
+		logger.PrintFatal(err.Error(), nil)
+	}
 }
